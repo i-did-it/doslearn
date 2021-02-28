@@ -245,9 +245,11 @@ main PROC FAR
 		LINENUMBER	EQU	TEMP					+ 2
 		TARGETBYTES	EQU	LINENUMBER		+ 2
 		TARGETDIM		EQU	TARGETBYTES		+ 2
-		QC					EQU	TARGETBYTES   + 4
+		QC					EQU	TARGETDIM		  + 4
 		COLOR				EQU	QC						+ 1
-		HEADER			EQU COLOR					+ 1
+		SHANDLE			EQU	COLOR					+ 1
+		THANDLE			EQU	SHANDLE				+ 2
+		HEADER			EQU THANDLE				+ 2
 		RBUF				EQU	HEADER				+ HEADERLENGTH
 		WBUF				EQU RBUF					+ RBUFLEN
 
@@ -283,6 +285,7 @@ main PROC FAR
 
 		
 		MOV		FH, AX
+		MOV		SHANDLE, AX
 		
 		; create target file
 		LEA		AX, TARGETFILE
@@ -290,6 +293,7 @@ main PROC FAR
 		JC		@@closeandexit
 
 		MOV		TFH, AX
+		Mov		THANDLE, AX
 
 		MOV		BX, FH
 		MOV		WORD PTR TEMP, DS		
@@ -375,48 +379,57 @@ main PROC FAR
 		
 		XOR		CX, CX
 		XOR		DX, DX
+		
+		MOV		CX, 0006H; INITIAL CX VALUE
 @nextbyte:
 		MOV		DL, [SI]
 		CMP		DL, 0C0H
 		JB		@normalpixel
-		AND		DL, 3FH; MORE THAN 1 PIXEL
+		AND		DL, 3FH
 		INC		SI
-		LODSB
-		JMP		@processpixel		
+		LODSB	
+		JMP		@processpixel
 @normalpixel:
-		MOV DL, 1; 1 pixel only
-@processpixel:
-		MOV	BYTE	PTR COLOR, AL
-@nextquartet:
-		MOV	CL, 6
-		MOV	CH, 0
-@nextshift1:
-		SHL	AL, CL
-		OR	CH, AL
-		CMP	CL, 0
-		JZ	@storebyte
-		SUB CL, 2
-		DEC	DL
-		JZ	@checkbuf
-		MOV	AL, BYTE PTR COLOR
-		JMP	@nextshift1
-@checkbuf:
-		LEA	BX, [RBUF + RBUFLEN]
-		CMP	SI, BX
-		JNE @nextbyte
-		JMP @@readmore
-@storebyte:
-		MOV	AL, CH
-		STOSB
-		MOV	AL, BYTE PTR COLOR
-		LEA	BX, [WBUF + WBUFLEN]
-		CMP	DI, BX
-		JNE @nextquartet
-		LEA	DI, WBUF
-		; write to file
-		JMP	@nextquartet
+		MOV		AL, DL
+		MOV		DL, 1
 
-		MOV		AX, FH
+@nextquartet:
+		MOV		CX, 06H
+@processpixel:
+		MOV		BYTE PTR COLOR, AL
+@leshift:
+		SHL		AL, CL
+		OR		CH, AL
+		CMP		CL, 0
+		JZ		@storebyte
+		SUB		CL, 2
+		MOV		AL, BYTE PTR COLOR
+		
+		DEC		DL
+		JZ		@readbufcheck
+
+		JMP		@leshift
+@readbufcheck:
+		LEA		BX, [RBUF + RBUFLEN]
+		CMP		SI, BX
+		JNE		@nextbyte
+		JMP		@@readmore
+@storebyte:
+		MOV		AL, CH
+		STOSB
+		MOV		AL, BYTE PTR COLOR
+		LEA		BX, [WBUF + WBUFLEN]
+		CMP		DI, BX
+		JNE		@nextquartet
+		LEA		DX, WBUF
+		MOV		DI, DX
+		MOV		BX, THANDLE
+		MOV		CX, WBUFLEN
+		MOV		AH, 40H
+		INT		21H
+		JMP		@nextquartet
+
+		MOV		AX, SHANDLE
 		CALL	closefile
 		JC		@@on_error
 		
