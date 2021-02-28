@@ -293,7 +293,7 @@ main PROC FAR
 		JC		@@closeandexit
 
 		MOV		TFH, AX
-		Mov		THANDLE, AX
+		MOV		THANDLE, AX
 
 		MOV		BX, FH
 		MOV		WORD PTR TEMP, DS		
@@ -362,25 +362,28 @@ main PROC FAR
 		MOV		TEMP, DS
 		MOV		AX, SS
 		MOV		DS, AX
-		
+	
 		XOR		AX, AX
 	; zero count
-		MOV		QC, AX
-		MOV		COLOR, AX
+		MOV		BYTE PTR QC, AL
+		MOV		BYTE PTR COLOR, AL
 
 		LEA		DI, WBUF
 
+		XOR		DX, DX	
+		MOV		CX, 06H; INITIAL CX VALUE
+
 @@readmore:
+		MOV		BX, SHANDLE
 		LEA		SI, RBUF
+		MOV		TEMP, CX
+		MOV		CX, RBUFLEN
 		MOV		DX, SI
 		MOV		AH, 3FH
 		INT		21H
 		JC		@@closeandexit
+		MOV		CX, TEMP
 		
-		XOR		CX, CX
-		XOR		DX, DX
-		
-		MOV		CX, 0006H; INITIAL CX VALUE
 @nextbyte:
 		MOV		DL, [SI]
 		CMP		DL, 0C0H
@@ -390,9 +393,9 @@ main PROC FAR
 		LODSB	
 		JMP		@processpixel
 @normalpixel:
-		MOV		AL, DL
+		LODSB
 		MOV		DL, 1
-
+		JMP		@processpixel
 @nextquartet:
 		MOV		CX, 06H
 @processpixel:
@@ -405,6 +408,8 @@ main PROC FAR
 		SUB		CL, 2
 		MOV		AL, BYTE PTR COLOR
 		
+		CMP		DL, 0
+		JZ		@readbufcheck
 		DEC		DL
 		JZ		@readbufcheck
 
@@ -420,6 +425,7 @@ main PROC FAR
 		MOV		AL, BYTE PTR COLOR
 		LEA		BX, [WBUF + WBUFLEN]
 		CMP		DI, BX
+		DEC		DL
 		JNE		@nextquartet
 		LEA		DX, WBUF
 		MOV		DI, DX
