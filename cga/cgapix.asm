@@ -36,6 +36,8 @@ _BSS		SEGMENT WORD PUBLIC 'DATA'
 	TOTALPIXEL		DW ?
 	RBYTE					DB ?
 	FNAME					DB 14 DUP (?)
+	BWIDTH				DW ?
+	BHEIGHT				DW ?
 _BSS		ENDS
 
 _STACK	SEGMENT PARA STACK 'STACK'
@@ -114,6 +116,25 @@ ENDM
 		LEA		DX, PCXHDR
 		INT		21H
 
+		MOV		AL, PCXHDR.identifier
+		CMP		AL, 0AH
+		JNE		@closeanderror
+		MOV		AL, PCXHDR.bpp
+		CMP		AL, 08H
+		JNE		@closeanderror
+		MOV		CX, PCXHDR.xmin
+		MOV		AX, PCXHDR.xmax
+		SUB		AX, CX
+		JZ		@closeanderror
+		INC		AX
+		MOV		BWIDTH, AX
+		MOV		CX, PCXHDR.ymin
+		MOV		AX, PCXHDR.ymax
+		SUB		AX, CX
+		JZ		@closeanderror
+		INC		AX
+		MOV		BHEIGHT, AX
+
 		MOV		AH, 42H
 		MOV		AL, 01H
 		MOV		BX, FHANDLE
@@ -138,6 +159,10 @@ ENDM
 		
 		JMP		@termnormal
 
+@closeanderror:
+		MOV	BX, FHANDLE
+		MOV	AH, 3EH
+		INT 21H
 @termerror:
 		MOV		AX, DGROUP
 		MOV		DS, AX	
